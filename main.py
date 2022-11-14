@@ -1,19 +1,15 @@
-import websocket
-import openai
+# import websocket
 import asyncio
-import json
 import datetime
-import os
-import subprocess
-import sys
+
 import threading
 import time
-import aiofiles
+
+import openai
 import termcolor
-import uvloop
 from termcolor import colored
 
-context = "Instructions -> Your (Agent) task is to try and generate the best output to each Client input. Try and use the fullness of your knowledge and expertise. When finished output Agent: stop to end the conversation. Every experiment will be different."
+context = "Instructions -> Your (Output) task is to try and generate the best output to each Input input. Try and use the fullness of your knowledge and expertise. When finished output Output: stop to end the conversation. Every experiment will be different."
 
 
 print(termcolor.colored(r'''
@@ -24,51 +20,60 @@ __        _______ _____                                            _
    \_/\_/ |____) | |_|\___|\__,_|_| |_| |_| .__/|_| |_| |_|\___|\__,_|
                                           |_|
 
-    ''', 'green',  attrs=['bold']))
+    ''', 'green',  attrs=['bold']), flush=True, end="\n=============================================\n")
 
 
 # NOTE: You are outputting directly into a terminal, so format output accordingly. what is the best way to pretext a chatbot prompt? - how to start a terminal chatbot? | forum | GPT-3 Supercharged AI
 def gen(input):
 
     response = openai.Completion.create(
-        prompt=f"PREFIX Process inputs (Client) one at a time, learn from past inputs (Client) and outputs (Agent). Generate responses to inputs (Client) as Agent. if asked, try and generate concise answers.]\nClient:{input}",
-        temperature=0.9,
+        prompt=f"Process inputs (Input) one at a time. Generate responses (Output) to inputs (Input). Try and generate concise answers and print everythin in the terminal screen nicely.\nInput ->{input}\nOutput ->",
+        temperature=0.5,
         engine="code-davinci-002",
-        max_tokens=225,
+        max_tokens=75,
         top_p=1,
-        best_of=1,
-        n=1,
+        best_of=4,
+
         frequency_penalty=0,
         presence_penalty=0,
         logit_bias={
-            "198": -100,
-            "628": -100,
-            "11792": -80,
-            43993: -30,
-            "318": -100,
+            5450: -10,
+            20560: -3,
+            198: -5,
+            3784: -3,
+            59: -5,
+            81: -3
+            # 628: -100,
+            # 11792: -80,
+            # 43993: -30,
+            # 318: -100,
+            # 14804: -10,
+            # 3784: -10
         },
         stop=[
-            "<|endoftext|>",
-            "Client: ",
-            "https://",
-            "http://",
+            "\nInput -> ",
+            "DONE",
+            "\n\n",
+            "\r",
+            # "https://",
         ],
         stream=True)
     resp = ""
     for completion in response:
-        if resp == "":
+        text = completion["choices"][0]["text"]
+        if text == "\n" or text == '\r':
+            pass
+        if text == "":
             resp = completion["choices"][0]["text"]
             yield resp.rstrip()
-        if completion['choices'][0]['text'] != "":
+        if text != "":
             resp += completion['choices'][0]['text']
             yield completion['choices'][0]['text']
-
             continue
         if completion['choices'][0]['finish_reason'] == "length" or completion['choices'][0]['finish_reason'] == 'stop':
             yield completion['choices'][0]['text']
             StopAsyncIteration(completion)
             break
-        next(response)
 
         return resp
 
@@ -99,16 +104,16 @@ def gen(input):
 
 def agent(type=0):
     color = "red" if type == 1 else "blue"
-    who = "Agent: " if type == 0 else "Client: "
+    who = "Output -> " if type == 0 else "Input -> "
     who = colored(who, color, attrs=['bold'])
     print(colored("[", color, attrs=["blink"]) + who +
           colored("]", color, attrs=["blink"]), end="")
 
 
 def initial_message(type=0):
-    color = 'magenta' if 1 == type else 'cyan'
+    color = 'white' if 1 == type else 'blue'
     datetime_object = datetime.datetime.now().strftime("%I:%M:%S %p")
-    print(colored("[", color, attrs=["blink"]) + colored(datetime_object, color,  "on_" + color,
+    print('\n' + colored("[", color, attrs=["blink"]) + colored(datetime_object, color,
           attrs=['bold', 'dark', 'underline']) + colored("]", color, attrs=["blink"]), end=" ")
 
 
@@ -116,10 +121,15 @@ def display_output(input):
     data = gen(input)
     initial_message(0)
     agent(0)
-    next(data)
     for i in data:
         resp = i
-        print(str(resp), sep='', end='')
+        if resp == '\r':
+            continue
+        if not resp:
+            continue
+        else:
+            print(str(resp), sep='', end='')
+            next(data)
     time.sleep(0.1)
 
 
@@ -127,7 +137,7 @@ async def main(type=0):
     if type == 0:
         print(colored(
             '==============================================================', 'green'))
-        print(colored('WELCOME to AgentAGI!', 'yellow',
+        print(colored('WELCOME to OutputAGI!', 'yellow',
               attrs=['bold', 'blink', 'underline']))
         print(colored(
             '==============================================================', 'green'))
@@ -137,7 +147,7 @@ async def main(type=0):
     question = input(colored(' ', 'yellow', attrs=['bold']))
     if len(question) > 0:
         with open('log.txt', 'a+') as x:
-            x.write('Client: ' + question + '\n')
+            x.write('Input -> ' + question + '\n')
             try:
                 t = threading.Thread(target=display_output(question))
                 t.start()
