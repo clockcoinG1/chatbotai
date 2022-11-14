@@ -1,2 +1,6 @@
+
 bin
 lib
+log.txt
+*.txt
+log.log
