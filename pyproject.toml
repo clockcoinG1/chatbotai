@@ -1,0 +1,21 @@
+# Current pyproject.toml
+[tool.poetry]
+name = "chatbotai"
+version = "0.1.0"
+description = ""
+authors = ["clockcoinG1 <antonland@pm.me>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+openai = "^0.25.0"
+termcolor = "^2.1.1"
+openai-summarizer = "^0.1.6"
+colorama = "^0.4.6"
+pyfiglet = "^0.8.post1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+# fixed pyproject.toml with all correct dependencies and configuration options

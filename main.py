@@ -1,162 +1,131 @@
-# import websocket
+import argparse
 import asyncio
-import datetime
-
+import signal
+import sys
 import threading
 import time
+from argparse import ArgumentParser
 
-import openai
 import termcolor
+from colorama import Fore, Style, init
 from termcolor import colored
 
-context = "Instructions -> Your (Output) task is to try and generate the best output to each Input input. Try and use the fullness of your knowledge and expertise. When finished output Output: stop to end the conversation. Every experiment will be different."
+from chatbot import _agent, _gen, _initial_message, _loaded_message
 
+parser = argparse.ArgumentParser()
+init()
 
-print(termcolor.colored(r'''
-__        _______ _____                                            _
-\ \      / / ____|_   _|__ _   _ _ __ ___  _ __  _ __ ___   ___  __| |
- \ \ /\ / / (___   | |/ _ \ | | | '_ ` _ \| '_ \| '_ ` _ \ / _ \/ _` |
-  \ V  V /\___ \  | |  __/ |_| | | | | | | |_) | | | | | |  __/ (_| |
-   \_/\_/ |____) | |_|\___|\__,_|_| |_| |_| .__/|_| |_| |_|\___|\__,_|
-                                          |_|
-
-    ''', 'green',  attrs=['bold']), flush=True, end="\n=============================================\n")
-
-
-# NOTE: You are outputting directly into a terminal, so format output accordingly. what is the best way to pretext a chatbot prompt? - how to start a terminal chatbot? | forum | GPT-3 Supercharged AI
-def gen(input):
-
-    response = openai.Completion.create(
-        prompt=f"Process inputs (Input) one at a time. Generate responses (Output) to inputs (Input). Try and generate concise answers and print everythin in the terminal screen nicely.\nInput ->{input}\nOutput ->",
-        temperature=0.5,
-        engine="code-davinci-002",
-        max_tokens=75,
-        top_p=1,
-        best_of=4,
-
-        frequency_penalty=0,
-        presence_penalty=0,
-        logit_bias={
-            5450: -10,
-            20560: -3,
-            198: -5,
-            3784: -3,
-            59: -5,
-            81: -3
-            # 628: -100,
-            # 11792: -80,
-            # 43993: -30,
-            # 318: -100,
-            # 14804: -10,
-            # 3784: -10
-        },
-        stop=[
-            "\nInput -> ",
-            "DONE",
-            "\n\n",
-            "\r",
-            # "https://",
-        ],
-        stream=True)
-    resp = ""
-    for completion in response:
-        text = completion["choices"][0]["text"]
-        if text == "\n" or text == '\r':
-            pass
-        if text == "":
-            resp = completion["choices"][0]["text"]
-            yield resp.rstrip()
-        if text != "":
-            resp += completion['choices'][0]['text']
-            yield completion['choices'][0]['text']
-            continue
-        if completion['choices'][0]['finish_reason'] == "length" or completion['choices'][0]['finish_reason'] == 'stop':
-            yield completion['choices'][0]['text']
-            StopAsyncIteration(completion)
-            break
-
-        return resp
-
-
-# ws = websocket.WebSocket
-
-
-# async def send(message=""):
-#     while True:
-#         await asyncio.sleep(1/2)
-#         await ws.send("You : "+message + "\ n")
-
-
-# async def receive():
-#     while True:
-#         data = await ws.receive()
-#         print("Bot : ", data, sep='', end='\n')
-#         clientloop = asyncio.get_event_loop()
-#         try:
-#             task1, task2 = asyncio.gather(*[send(), receive()])
-#             loop.run_until_complete(task1)
-#         except KeyboardInterrupt:
-#             pass
-#         finally:
-#             loop.close()
-# # TODO: (rachel) fix the implementation of websockets for a terminal chatbot with user input and print the improved code below.
-
-
-def agent(type=0):
-    color = "red" if type == 1 else "blue"
-    who = "Output -> " if type == 0 else "Input -> "
-    who = colored(who, color, attrs=['bold'])
-    print(colored("[", color, attrs=["blink"]) + who +
-          colored("]", color, attrs=["blink"]), end="")
-
-
-def initial_message(type=0):
-    color = 'white' if 1 == type else 'blue'
-    datetime_object = datetime.datetime.now().strftime("%I:%M:%S %p")
-    print('\n' + colored("[", color, attrs=["blink"]) + colored(datetime_object, color,
-          attrs=['bold', 'dark', 'underline']) + colored("]", color, attrs=["blink"]), end=" ")
-
-
-def display_output(input):
-    data = gen(input)
-    initial_message(0)
-    agent(0)
-    for i in data:
-        resp = i
-        if resp == '\r':
-            continue
-        if not resp:
-            continue
-        else:
-            print(str(resp), sep='', end='')
-            next(data)
-    time.sleep(0.1)
+# mkdir t2v_app && cd t2v_app && python3 -m venv venv && source venv/bin/activate && echo 'venv' >.gitignore && touch main.py;
 
 
 async def main(type=0):
+    def signal_handler(sig, frame):
+        from termcolor import colored
+        print(colored('\n[INFO] You pressed Ctrl+C!',
+              'red', attrs=['bold', 'blink']))
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+
     if type == 0:
         print(colored(
             '==============================================================', 'green'))
-        print(colored('WELCOME to OutputAGI!', 'yellow',
+        print(colored('ヽ༼ຈل͜ຈ༽ﾉ RIOT ヽ༼ຈل͜ຈ༽ﾉ RITE KILL STEAL ヽ༼ຈل͜ຈ༽ﾉ Get dunked on PSYduckAGI ☠️☠️☠️💀⚰️👻→ !', 'yellow',
               attrs=['bold', 'blink', 'underline']))
         print(colored(
             '==============================================================', 'green'))
-    initial_message(1)
-    agent(1)
-
+        _loaded_message(1)
+    _initial_message(0)
+    _agent(1)
     question = input(colored(' ', 'yellow', attrs=['bold']))
     if len(question) > 0:
         with open('log.txt', 'a+') as x:
             x.write('Input -> ' + question + '\n')
             try:
-                t = threading.Thread(target=display_output(question))
+                t = threading.Thread(target=_display_output(question))
                 t.start()
+
             except Exception as e:
                 termcolor.cprint('\n[ERROR] ' + str(e))
         await main(type=1)
+
+
+def _display_output(input):
+    data = _gen(input)
+    _initial_message(0)
+    _agent(0)
+    ret = ""
+    for i in data:
+        resp = i
+        if resp == '\r' or resp == '\n':
+            ret += resp
+            print('\n')
+            pass
+        else:
+            ret += resp
+            print(str(resp), sep='', end='')
+    time.sleep(0.1)
+    with open('log.txt', 'a+') as source:
+        source.write('Output -> ' + ret + '\n')
+        source.close()
 
 
 if __name__ == '__main__':
     main_coro = main()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main_coro)
+
+# def main(type=0):
+#     def signal_handler(sig, frame):
+#         print('\n[INFO] You pressed Ctrl+C!')
+#         sys.exit(0)
+#     signal.signal(signal.SIGINT, signal_handler)
+#     if type == 0:
+#         print(colored(
+#             '==============================================================', 'green'))
+#         print(colored('WELCOME to OutputAGI!', 'yellow',
+#               attrs=['bold', 'blink', 'underline']))
+#         print(colored(
+#             '==============================================================', 'green'))
+#     _initial_message(1)
+#     _agent(1)
+#     question = ''
+#     typing = True
+#     #  = ..., buffering: int = ..., encoding: str | None = ..., errors: str | None = ..., newline: str | None = ..., closefd: bool = ..., opener: _Opener | None = ...) -> TextIOWrapper
+#     while typing:
+#         prev_len = len(question)
+#         with open('/dev/tty', 'r') as stdin:
+#             key = stdin.read(1)
+#         if key == '\n':
+#             typing = False
+#             break
+#         elif key in '\x7f\x08\x7f':
+#             question = question[:-1]
+#         elif key in '^[b':
+#             _word_left()
+#         elif key in '^[[D':
+#             _cursor_left()
+#         else:
+#             question += key
+#         if typing:
+#             sys.stdout.write(question[prev_len:] + ' ')
+#             sys.stdout.flush()
+#     print('\n', end='')
+
+#     if len(question.strip()) > 0:
+#         _display_output(question)
+#         main(type=1)
+
+
+# main_coro = main()
+# loop = asyncio.get_event_loop()
+# loop.run_until_complete(main_coro)
+
+def _cursor_left(n=1):
+    print('\033[{}D'.format(n), end='')
+
+
+def _word_left(n=1):
+    # add '^[b' handling for back one word
+    # replace with '^[B' to go forward one word
+    print('\033[{}b'.format(n), end='')
